@@ -1,5 +1,6 @@
 import socket
 import os
+import requests
 from flask import Flask, jsonify, request
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
@@ -16,10 +17,10 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-# Habilitar o CORS
+# Enable CORS
 CORS(app)
 
-# Helper function to identify common services based on ports
+# Helper functions and configurations
 COMMON_SERVICES = {
     21: 'FTP',
     22: 'SSH',
@@ -62,7 +63,37 @@ def advanced_port_scan(target, ports):
             results[port] = {"status": "error", "message": str(e)}
     return results
 
-# Endpoint for advanced port scanning
+def get_vulnerabilities(software, version):
+    """
+    Fetch vulnerabilities from the Vulners API for a given software and version.
+    """
+    API_URL = "https://vulners.com/api/v3/search/lucene/"
+    API_KEY = os.getenv("VULNERS_API_KEY", "your_nist_api_key_here")  # Replace with your API key
+
+    query = f"{software} {version}"
+    params = {
+        "query": query,
+        "apiKey": API_KEY
+    }
+
+    try:
+        response = requests.get(API_URL, params=params, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            vulns = []
+            for item in data.get('data', {}).get('documents', []):
+                vulns.append({
+                    "cve_id": item.get('id'),
+                    "description": item.get('description'),
+                    "severity": item.get('cvss', 'Unknown')
+                })
+            return vulns
+        else:
+            return [{"error": f"API request failed with status code {response.status_code}"}]
+    except Exception as e:
+        return [{"error": str(e)}]
+
+# Endpoints
 @app.route('/scan/ports', methods=['POST'])
 def scan_ports_advanced():
     """
@@ -115,6 +146,70 @@ def scan_ports_advanced():
         return jsonify({"target": target, "results": results}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/scan/vulnerabilities', methods=['POST'])
+def scan_vulnerabilities():
+    """
+    Vulnerability Scanner Endpoint
+    ---
+    tags:
+      - Vulnerability Scanner
+    parameters:
+      - name: body
+        in: body
+        required: true
+        description: Provide the target software information.
+        schema:
+          type: object
+          properties:
+            software_versions:
+              type: array
+              items:
+                type: object
+                properties:
+                  software:
+                    type: string
+                    example: "nginx"
+                  version:
+                    type: string
+                    example: "1.21.6"
+    responses:
+      200:
+        description: Vulnerabilities found
+        schema:
+          type: object
+          properties:
+            vulnerabilities:
+              type: array
+              items:
+                type: object
+                properties:
+                  cve_id:
+                    type: string
+                    example: "CVE-2023-1234"
+                  description:
+                    type: string
+                    example: "Buffer overflow in nginx 1.21.6"
+                  severity:
+                    type: string
+                    example: "High"
+    """
+    data = request.get_json()
+    software_versions = data.get('software_versions')
+    if not software_versions:
+        return jsonify({"error": "Missing 'software_versions' in request body"}), 400
+
+    vulnerabilities = []
+    for software_info in software_versions:
+        software = software_info.get('software')
+        version = software_info.get('version')
+        if not software or not version:
+            continue
+
+        vulns = get_vulnerabilities(software, version)
+        vulnerabilities.extend(vulns)
+
+    return jsonify({"vulnerabilities": vulnerabilities}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
