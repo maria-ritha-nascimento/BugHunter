@@ -1,0 +1,53 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "BugHunter API",
+    "description": "API for network bug and vulnerability scanning."
+  },
+  "host": "127.0.0.1:5000",
+  "basePath": "/",
+  "tags": [
+    {
+      "name": "Network Scanner",
+      "description": "Endpoints for network scanning"
+    }
+  ],
+  "paths": {
+    "/scan/ports": {
+      "post": {
+        "tags": ["Network Scanner"],
+        "summary": "Scan ports on a target host",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": { "type": "string" },
+                "ports": { "type": "array", "items": { "type": "integer" } }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan results",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": { "type": "string" },
+                "results": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
