@@ -7,7 +7,28 @@
   },
   "host": "127.0.0.1:5000",
   "basePath": "/",
-  "schemes": ["http"],
+  "tags": [
+    {
+      "name": "Network Scanner",
+      "description": "Endpoints for network scanning"
+    },
+    {
+      "name": "Vulnerability Scanner",
+      "description": "Endpoints for vulnerability detection"
+    },
+    {
+      "name": "Web Scanner",
+      "description": "Endpoints for web application scanning"
+    },
+    {
+      "name": "DNS Scanner",
+      "description": "Endpoints for DNS configuration analysis"
+    },
+    {
+      "name": "SSL/TLS Scanner",
+      "description": "Endpoints for SSL/TLS configuration scanning"
+    }
+  ],
   "paths": {
     "/scan/ports": {
       "post": {
@@ -21,26 +42,34 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": {
-                  "type": "string",
-                  "example": "127.0.0.1"
-                },
+                "target": { "type": "string" },
                 "ports": {
                   "type": "array",
-                  "items": {
-                    "type": "integer"
-                  },
-                  "example": [80, 443, 22]
+                  "items": { "type": "integer" }
                 }
-              }
+              },
+              "required": ["target", "ports"]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Port scan results",
+            "description": "Scan results",
             "schema": {
-              "type": "object"
+              "type": "object",
+              "properties": {
+                "target": { "type": "string" },
+                "results": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string" },
+                      "service": { "type": "string" }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -49,7 +78,7 @@
     "/scan/vulnerabilities": {
       "post": {
         "tags": ["Vulnerability Scanner"],
-        "summary": "Scan for software vulnerabilities",
+        "summary": "Scan for vulnerabilities based on software versions",
         "parameters": [
           {
             "in": "body",
@@ -58,11 +87,19 @@
             "schema": {
               "type": "object",
               "properties": {
-                "software": {
-                  "type": "string",
-                  "example": "nginx:1.21"
+                "software_list": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "version": { "type": "string" }
+                    },
+                    "required": ["name", "version"]
+                  }
                 }
-              }
+              },
+              "required": ["software_list"]
             }
           }
         ],
@@ -70,7 +107,23 @@
           "200": {
             "description": "Vulnerability scan results",
             "schema": {
-              "type": "object"
+              "type": "object",
+              "properties": {
+                "vulnerabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "version": { "type": "string" },
+                      "cve_list": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -88,19 +141,30 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": {
-                  "type": "string",
-                  "example": "http://example.com"
-                }
-              }
+                "url": { "type": "string" }
+              },
+              "required": ["url"]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Web application scan results",
+            "description": "Web scan results",
             "schema": {
-              "type": "object"
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "issues": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": { "type": "string" },
+                      "details": { "type": "string" }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -109,7 +173,7 @@
     "/scan/dns": {
       "post": {
         "tags": ["DNS Scanner"],
-        "summary": "Scan a domain for DNS configurations",
+        "summary": "Scan DNS configuration of a domain",
         "parameters": [
           {
             "in": "body",
@@ -118,11 +182,9 @@
             "schema": {
               "type": "object",
               "properties": {
-                "domain": {
-                  "type": "string",
-                  "example": "example.com"
-                }
-              }
+                "domain": { "type": "string" }
+              },
+              "required": ["domain"]
             }
           }
         ],
@@ -130,7 +192,65 @@
           "200": {
             "description": "DNS scan results",
             "schema": {
-              "type": "object"
+              "type": "object",
+              "properties": {
+                "domain": { "type": "string" },
+                "records": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scan/ssl": {
+      "post": {
+        "tags": ["SSL/TLS Scanner"],
+        "summary": "Scan SSL/TLS configuration of a domain",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "domain": { "type": "string" },
+                "port": { "type": "integer", "default": 443 }
+              },
+              "required": ["domain"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSL/TLS scan results",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "domain": { "type": "string" },
+                "ssl_details": {
+                  "type": "object",
+                  "properties": {
+                    "valid_from": { "type": "string" },
+                    "valid_to": { "type": "string" },
+                    "issuer": { "type": "string" },
+                    "protocols": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "vulnerabilities": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
             }
           }
         }
