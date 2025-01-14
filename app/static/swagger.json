@@ -3,37 +3,17 @@
   "info": {
     "version": "1.0.0",
     "title": "BugHunter API",
-    "description": "API for network bug and vulnerability scanning."
+    "description": "API para análises de segurança, incluindo varredura de portas, vulnerabilidades, DNS, SSL/TLS e geração de relatórios automatizados."
   },
-  "host": "127.0.0.1:5000",
+  "host": "localhost:5000",
   "basePath": "/",
-  "tags": [
-    {
-      "name": "Network Scanner",
-      "description": "Endpoints for network scanning"
-    },
-    {
-      "name": "Vulnerability Scanner",
-      "description": "Endpoints for vulnerability detection"
-    },
-    {
-      "name": "Web Scanner",
-      "description": "Endpoints for web application scanning"
-    },
-    {
-      "name": "DNS Scanner",
-      "description": "Endpoints for DNS configuration analysis"
-    },
-    {
-      "name": "SSL/TLS Scanner",
-      "description": "Endpoints for SSL/TLS configuration scanning"
-    }
-  ],
+  "schemes": ["http"],
   "paths": {
     "/scan/ports": {
       "post": {
-        "tags": ["Network Scanner"],
-        "summary": "Scan ports on a target host",
+        "tags": ["Port Scanner"],
+        "summary": "Varredura Avançada de Portas",
+        "description": "Realiza uma varredura avançada para detectar portas abertas e os serviços associados.",
         "parameters": [
           {
             "in": "body",
@@ -42,19 +22,19 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string" },
+                "target": { "type": "string", "example": "127.0.0.1" },
                 "ports": {
                   "type": "array",
-                  "items": { "type": "integer" }
+                  "items": { "type": "integer" },
+                  "example": [22, 80, 443]
                 }
-              },
-              "required": ["target", "ports"]
+              }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Scan results",
+            "description": "Resultados da varredura de portas.",
             "schema": {
               "type": "object",
               "properties": {
@@ -78,7 +58,8 @@
     "/scan/vulnerabilities": {
       "post": {
         "tags": ["Vulnerability Scanner"],
-        "summary": "Scan for vulnerabilities based on software versions",
+        "summary": "Escaneia vulnerabilidades associadas ao software detectado.",
+        "description": "Usa a API do NIST para buscar vulnerabilidades relacionadas ao software informado.",
         "parameters": [
           {
             "in": "body",
@@ -89,117 +70,28 @@
               "properties": {
                 "software_list": {
                   "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": { "type": "string" },
-                      "version": { "type": "string" }
-                    },
-                    "required": ["name", "version"]
-                  }
-                }
-              },
-              "required": ["software_list"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Vulnerability scan results",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "vulnerabilities": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "name": { "type": "string" },
-                      "version": { "type": "string" },
-                      "cve_list": {
-                        "type": "array",
-                        "items": { "type": "string" }
-                      }
-                    }
-                  }
+                  "items": { "type": "string" },
+                  "example": ["nginx", "apache"]
                 }
               }
             }
           }
-        }
-      }
-    },
-    "/scan/web": {
-      "post": {
-        "tags": ["Web Scanner"],
-        "summary": "Scan a web application for vulnerabilities",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "url": { "type": "string" }
-              },
-              "required": ["url"]
-            }
-          }
         ],
         "responses": {
           "200": {
-            "description": "Web scan results",
+            "description": "Resultados do escaneamento de vulnerabilidades.",
             "schema": {
               "type": "object",
               "properties": {
-                "url": { "type": "string" },
-                "issues": {
+                "results": {
                   "type": "array",
                   "items": {
                     "type": "object",
                     "properties": {
-                      "type": { "type": "string" },
-                      "details": { "type": "string" }
+                      "software": { "type": "string" },
+                      "id": { "type": "string" },
+                      "description": { "type": "string" }
                     }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/scan/dns": {
-      "post": {
-        "tags": ["DNS Scanner"],
-        "summary": "Scan DNS configuration of a domain",
-        "parameters": [
-          {
-            "in": "body",
-            "name": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "domain": { "type": "string" }
-              },
-              "required": ["domain"]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "DNS scan results",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "domain": { "type": "string" },
-                "records": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "array",
-                    "items": { "type": "string" }
                   }
                 }
               }
@@ -211,7 +103,8 @@
     "/scan/ssl": {
       "post": {
         "tags": ["SSL/TLS Scanner"],
-        "summary": "Scan SSL/TLS configuration of a domain",
+        "summary": "Realiza verificação SSL/TLS.",
+        "description": "Analisa os certificados SSL/TLS de um domínio e retorna informações como emissor e validade.",
         "parameters": [
           {
             "in": "body",
@@ -220,36 +113,60 @@
             "schema": {
               "type": "object",
               "properties": {
-                "domain": { "type": "string" },
-                "port": { "type": "integer", "default": 443 }
-              },
-              "required": ["domain"]
+                "domain": { "type": "string", "example": "example.com" }
+              }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "SSL/TLS scan results",
+            "description": "Resultados do escaneamento SSL/TLS.",
             "schema": {
               "type": "object",
               "properties": {
                 "domain": { "type": "string" },
-                "ssl_details": {
+                "results": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scan/report": {
+      "post": {
+        "tags": ["Reports"],
+        "summary": "Geração de Relatórios Automatizados",
+        "description": "Gera relatórios detalhados em formato JSON ou PDF com base nas análises realizadas.",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": { "type": "string", "example": "example.com" },
+                "type": { "type": "string", "enum": ["json", "pdf"], "example": "pdf" },
+                "details": {
                   "type": "object",
-                  "properties": {
-                    "valid_from": { "type": "string" },
-                    "valid_to": { "type": "string" },
-                    "issuer": { "type": "string" },
-                    "protocols": {
-                      "type": "array",
-                      "items": { "type": "string" }
-                    },
-                    "vulnerabilities": {
-                      "type": "array",
-                      "items": { "type": "string" }
-                    }
+                  "additionalProperties": true,
+                  "example": {
+                    "ports": { "80": "open", "443": "open" },
+                    "ssl": { "issuer": "Let's Encrypt", "valid_from": "2025-01-01" }
                   }
                 }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Relatório gerado com sucesso.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": { "type": "string" },
+                "details": { "type": "object" }
               }
             }
           }

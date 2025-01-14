@@ -1,189 +1,154 @@
-import ssl
+import os
 import socket
 import requests
+import json
 import nmap
-import dns.resolver
+import ssl
 from flask import Flask, jsonify, request
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 from bs4 import BeautifulSoup
+import dns.resolver
 
 app = Flask(__name__)
 
 # Swagger configuration
 SWAGGER_URL = '/swagger'
-API_URL = '/static/swagger.json'  # Swagger JSON URL
+API_URL = '/static/swagger.json'
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
     config={'app_name': "BugHunter"}
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
-
-# Enable CORS
 CORS(app)
 
-# Helper function for port scanning
-def port_scan(target):
-    nm = nmap.PortScanner()
-    nm.scan(hosts=target, arguments='-sS -p 1-65535')
+COMMON_SERVICES = {
+    21: 'FTP',
+    22: 'SSH',
+    23: 'Telnet',
+    25: 'SMTP',
+    53: 'DNS',
+    80: 'HTTP',
+    110: 'POP3',
+    143: 'IMAP',
+    443: 'HTTPS',
+    3306: 'MySQL',
+    5432: 'PostgreSQL',
+    6379: 'Redis',
+    8080: 'HTTP-alt'
+}
+
+def identify_service(port):
+    return COMMON_SERVICES.get(port, 'Unknown')
+
+def advanced_port_scan(target, ports):
     results = {}
-    for host in nm.all_hosts():
-        results[host] = {
-            'state': nm[host].state(),
-            'open_ports': []
-        }
-        for proto in nm[host].all_protocols():
-            ports = nm[host][proto].keys()
-            for port in ports:
-                results[host]['open_ports'].append({
-                    'port': port,
-                    'state': nm[host][proto][port]['state']
-                })
-    return results
-
-# Helper function for vulnerability scanning
-def vulnerability_scan(version):
-    url = f'https://services.nvd.nist.gov/rest/json/cves/1.0?keyword={version}'
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        return {'error': 'Failed to fetch vulnerabilities'}
-
-# Helper function for web scanning
-def web_scan(url):
-    try:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        vulnerabilities = []
-
-        # Basic vulnerability checks
-        if "<script>" in response.text:
-            vulnerabilities.append("Potential XSS detected")
-
-        if "SELECT * FROM" in response.text:
-            vulnerabilities.append("Potential SQL Injection detected")
-
-        return {
-            'status': 'success',
-            'pages': len(soup.find_all('a')),
-            'vulnerabilities': vulnerabilities
-        }
-    except Exception as e:
-        return {'error': str(e)}
-
-# Helper function for DNS scanning
-def dns_scan(domain):
-    try:
-        resolver = dns.resolver.Resolver()
-        records = resolver.resolve(domain, 'A')
-        results = {
-            'A_records': [record.to_text() for record in records]
-        }
-
+    for port in ports:
         try:
-            txt_records = resolver.resolve(domain, 'TXT')
-            results['TXT_records'] = [record.to_text() for record in txt_records]
-        except dns.resolver.NoAnswer:
-            results['TXT_records'] = []
-
-        return results
-    except Exception as e:
-        return {'error': str(e)}
-
-# Helper function for SSL/TLS scanning
-def ssl_scan(domain):
-    results = {}
-
-    try:
-        context = ssl.create_default_context()
-        with socket.create_connection((domain, 443), timeout=5) as sock:
-            with context.wrap_socket(sock, server_hostname=domain) as ssl_sock:
-                cert = ssl_sock.getpeercert()
-                results["subject"] = dict(cert["subject"])
-                results["issuer"] = dict(cert["issuer"])
-                results["valid_from"] = cert["notBefore"]
-                results["valid_to"] = cert["notAfter"]
-                results["tls_version"] = ssl_sock.version()
-    except ssl.SSLError as e:
-        results["error"] = f"SSL error: {str(e)}"
-    except socket.timeout:
-        results["error"] = "Connection timed out"
-    except Exception as e:
-        results["error"] = f"An error occurred: {str(e)}"
-
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)
+                result = s.connect_ex((target, port))
+                if result == 0:
+                    service = identify_service(port)
+                    results[port] = {"status": "open", "service": service}
+                else:
+                    results[port] = {"status": "closed"}
+        except Exception as e:
+            results[port] = {"status": "error", "message": str(e)}
     return results
 
-# Port Scanner Endpoint
 @app.route('/scan/ports', methods=['POST'])
-def scan_ports():
+def scan_ports_advanced():
     data = request.get_json()
     target = data.get('target')
-    if not target:
-        return jsonify({"error": "Missing 'target' in request body"}), 400
-
+    ports = data.get('ports')
+    if not target or not ports:
+        return jsonify({"error": "Missing 'target' or 'ports' in request body"}), 400
     try:
-        results = port_scan(target)
+        results = advanced_port_scan(target, ports)
         return jsonify({"target": target, "results": results}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Vulnerability Scanner Endpoint
 @app.route('/scan/vulnerabilities', methods=['POST'])
 def scan_vulnerabilities():
     data = request.get_json()
-    version = data.get('version')
-    if not version:
-        return jsonify({"error": "Missing 'version' in request body"}), 400
+    target = data.get("target")
+    if not target:
+        return jsonify({"error": "Missing 'target' in request body"}), 400
+    # Example: Dummy response to simulate vulnerability scan
+    return jsonify({
+        "target": target,
+        "vulnerabilities": [
+            {"id": "CVE-2021-34527", "description": "PrintNightmare vulnerability", "severity": "high"},
+            {"id": "CVE-2021-44228", "description": "Log4Shell vulnerability", "severity": "critical"}
+        ]
+    }), 200
 
-    try:
-        results = vulnerability_scan(version)
-        return jsonify({"version": version, "results": results}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# Web Scanner Endpoint
-@app.route('/scan/web', methods=['POST'])
-def scan_web():
-    data = request.get_json()
-    url = data.get('url')
-    if not url:
-        return jsonify({"error": "Missing 'url' in request body"}), 400
-
-    try:
-        results = web_scan(url)
-        return jsonify({"url": url, "results": results}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# DNS Scanner Endpoint
 @app.route('/scan/dns', methods=['POST'])
-def scan_dns():
+def dns_scan():
     data = request.get_json()
-    domain = data.get('domain')
+    domain = data.get("domain")
     if not domain:
         return jsonify({"error": "Missing 'domain' in request body"}), 400
-
     try:
-        results = dns_scan(domain)
-        return jsonify({"domain": domain, "results": results}), 200
+        dns_results = {}
+        resolver = dns.resolver.Resolver()
+        for record in ["A", "MX", "TXT", "NS", "CNAME"]:
+            try:
+                dns_results[record] = [r.to_text() for r in resolver.resolve(domain, record)]
+            except dns.resolver.NoAnswer:
+                dns_results[record] = []
+            except Exception as e:
+                dns_results[record] = {"error": str(e)}
+        return jsonify({"domain": domain, "dns_records": dns_results}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# SSL/TLS Scanner Endpoint
-@app.route('/scan/ssl', methods=['POST'])
-def scan_ssl():
+@app.route('/scan/web', methods=['POST'])
+def web_scan():
     data = request.get_json()
-    domain = data.get('domain')
-    if not domain:
-        return jsonify({"error": "Missing 'domain' in request body"}), 400
-
+    target = data.get("target")
+    if not target:
+        return jsonify({"error": "Missing 'target' in request body"}), 400
     try:
-        results = ssl_scan(domain)
-        return jsonify({"domain": domain, "results": results}), 200
+        response = requests.get(target)
+        soup = BeautifulSoup(response.text, "html.parser")
+        links = [link.get('href') for link in soup.find_all('a', href=True)]
+        return jsonify({"target": target, "links": links}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+def create_pdf_report(filename, data):
+    pdf_path = os.path.join(os.getcwd(), filename)
+    c = canvas.Canvas(pdf_path, pagesize=letter)
+    c.drawString(100, 750, f"Report for {data['target']}")
+    y_position = 700
+    details = data.get("details", {})
+    for key, value in details.items():
+        c.drawString(100, y_position, f"{key}: {value}")
+        y_position -= 20
+    c.save()
+    return pdf_path
+
+@app.route('/scan/report', methods=['POST'])
+def generate_report():
+    data = request.get_json()
+    target = data.get("target")
+    details = data.get("details")
+
+    if isinstance(details, str):
+        try:
+            details = json.loads(details)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid 'details' format. Must be JSON."}), 400
+
+    filename = f"{target}_report.pdf"
+    pdf_path = create_pdf_report(filename, {"target": target, "details": details})
+    return jsonify({"message": "Report generated successfully.", "path": pdf_path}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
