@@ -5,6 +5,7 @@ from flask import Flask, jsonify, request
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS
 from bs4 import BeautifulSoup
+import dns.resolver
 
 app = Flask(__name__)
 
@@ -106,6 +107,44 @@ def detect_web_vulnerabilities(target):
     return vulnerabilities
 
 
+def find_active_subdomains(domain):
+    """Find active subdomains."""
+    subdomains = ["www", "mail", "ftp", "test", "admin"]
+    active_subdomains = []
+    for sub in subdomains:
+        full_domain = f"{sub}.{domain}"
+        try:
+            socket.gethostbyname(full_domain)
+            active_subdomains.append(full_domain)
+        except socket.gaierror:
+            pass
+    return active_subdomains
+
+
+def detect_dns_insecure_config(domain):
+    """Detect insecure DNS configurations."""
+    insecure_records = []
+    try:
+        txt_records = dns.resolver.resolve(domain, 'TXT')
+        for record in txt_records:
+            record_data = record.to_text()
+            if "v=spf1" in record_data:
+                if "~all" in record_data or "-all" not in record_data:
+                    insecure_records.append({
+                        "type": "SPF",
+                        "details": f"Insecure SPF record: {record_data}"
+                    })
+            if "dkim" in record_data.lower():
+                if "v=DKIM1" not in record_data:
+                    insecure_records.append({
+                        "type": "DKIM",
+                        "details": f"Potentially insecure DKIM record: {record_data}"
+                    })
+    except Exception as e:
+        insecure_records.append({"error": str(e)})
+    return insecure_records
+
+
 # Endpoints
 @app.route('/scan/ports', methods=['POST'])
 def scan_ports_advanced():
@@ -144,6 +183,24 @@ def scan_web():
         pages = crawl_website(target)
         vulnerabilities = detect_web_vulnerabilities(target)
         return jsonify({"target": target, "pages_crawled": pages, "vulnerabilities": vulnerabilities}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/scan/dns', methods=['POST'])
+def scan_dns():
+    data = request.get_json()
+    domain = data.get('domain')
+    if not domain:
+        return jsonify({"error": "Missing 'domain' in request body"}), 400
+    try:
+        active_subdomains = find_active_subdomains(domain)
+        insecure_dns = detect_dns_insecure_config(domain)
+        return jsonify({
+            "domain": domain,
+            "active_subdomains": active_subdomains,
+            "insecure_dns_records": insecure_dns
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -21,11 +21,16 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "example": "127.0.0.1" },
+                "target": {
+                  "type": "string",
+                  "example": "127.0.0.1"
+                },
                 "ports": {
                   "type": "array",
-                  "items": { "type": "integer" },
-                  "example": [22, 80, 443]
+                  "items": {
+                    "type": "integer"
+                  },
+                  "example": [80, 443, 22]
                 }
               }
             }
@@ -34,7 +39,9 @@
         "responses": {
           "200": {
             "description": "Port scan results",
-            "schema": { "type": "object" }
+            "schema": {
+              "type": "object"
+            }
           }
         }
       }
@@ -51,7 +58,10 @@
             "schema": {
               "type": "object",
               "properties": {
-                "software": { "type": "string", "example": "Apache 2.4.49" }
+                "software": {
+                  "type": "string",
+                  "example": "nginx:1.21"
+                }
               }
             }
           }
@@ -59,7 +69,9 @@
         "responses": {
           "200": {
             "description": "Vulnerability scan results",
-            "schema": { "type": "object" }
+            "schema": {
+              "type": "object"
+            }
           }
         }
       }
@@ -76,15 +88,50 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "example": "http://example.com" }
+                "target": {
+                  "type": "string",
+                  "example": "http://example.com"
+                }
               }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Web scan results",
-            "schema": { "type": "object" }
+            "description": "Web application scan results",
+            "schema": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "/scan/dns": {
+      "post": {
+        "tags": ["DNS Scanner"],
+        "summary": "Scan a domain for DNS configurations",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "domain": {
+                  "type": "string",
+                  "example": "example.com"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DNS scan results",
+            "schema": {
+              "type": "object"
+            }
           }
         }
       }
