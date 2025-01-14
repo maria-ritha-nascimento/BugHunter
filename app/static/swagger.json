@@ -7,16 +7,7 @@
   },
   "host": "127.0.0.1:5000",
   "basePath": "/",
-  "tags": [
-    {
-      "name": "Network Scanner",
-      "description": "Endpoints for network scanning"
-    },
-    {
-      "name": "Vulnerability Scanner",
-      "description": "Endpoints for vulnerability detection"
-    }
-  ],
+  "schemes": ["http"],
   "paths": {
     "/scan/ports": {
       "post": {
@@ -30,29 +21,20 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string" },
-                "ports": { "type": "array", "items": { "type": "integer" } }
-              },
-              "example": {
-                "target": "127.0.0.1",
-                "ports": [22, 80, 443]
+                "target": { "type": "string", "example": "127.0.0.1" },
+                "ports": {
+                  "type": "array",
+                  "items": { "type": "integer" },
+                  "example": [22, 80, 443]
+                }
               }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Scan results",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "target": { "type": "string" },
-                "results": {
-                  "type": "object",
-                  "additionalProperties": { "type": "object" }
-                }
-              }
-            }
+            "description": "Port scan results",
+            "schema": { "type": "object" }
           }
         }
       }
@@ -60,7 +42,7 @@
     "/scan/vulnerabilities": {
       "post": {
         "tags": ["Vulnerability Scanner"],
-        "summary": "Scan for vulnerabilities in software versions",
+        "summary": "Scan for software vulnerabilities",
         "parameters": [
           {
             "in": "body",
@@ -69,45 +51,40 @@
             "schema": {
               "type": "object",
               "properties": {
-                "software_versions": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "software": { "type": "string" },
-                      "version": { "type": "string" }
-                    }
-                  }
-                }
-              },
-              "example": {
-                "software_versions": [
-                  { "software": "nginx", "version": "1.21.6" },
-                  { "software": "apache", "version": "2.4.54" }
-                ]
+                "software": { "type": "string", "example": "Apache 2.4.49" }
               }
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Vulnerabilities found",
+            "description": "Vulnerability scan results",
+            "schema": { "type": "object" }
+          }
+        }
+      }
+    },
+    "/scan/web": {
+      "post": {
+        "tags": ["Web Scanner"],
+        "summary": "Scan a web application for vulnerabilities",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
             "schema": {
               "type": "object",
               "properties": {
-                "vulnerabilities": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "cve_id": { "type": "string" },
-                      "description": { "type": "string" },
-                      "severity": { "type": "string" }
-                    }
-                  }
-                }
+                "target": { "type": "string", "example": "http://example.com" }
               }
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Web scan results",
+            "schema": { "type": "object" }
           }
         }
       }
