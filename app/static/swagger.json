@@ -3,7 +3,11 @@
   "info": {
     "version": "1.0.0",
     "title": "BugHunter API",
-    "description": "API para análises de segurança, incluindo varredura de portas, vulnerabilidades, DNS, SSL/TLS e geração de relatórios automatizados."
+    "description": "API para análise de segurança e geração de relatórios técnicos.",
+    "contact": {
+      "name": "Maria Ritha Nascimento",
+      "url": "https://github.com/maria-ritha-nascimento/BugHunter"
+    }
   },
   "host": "localhost:5000",
   "basePath": "/",
@@ -11,9 +15,8 @@
   "paths": {
     "/scan/ports": {
       "post": {
-        "tags": ["Port Scanner"],
-        "summary": "Varredura Avançada de Portas",
-        "description": "Realiza uma varredura avançada para detectar portas abertas e os serviços associados.",
+        "summary": "Scan de Portas",
+        "description": "Realiza um scan avançado nas portas fornecidas do alvo especificado.",
         "parameters": [
           {
             "in": "body",
@@ -22,44 +25,50 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "example": "127.0.0.1" },
+                "target": {
+                  "type": "string",
+                  "example": "127.0.0.1"
+                },
                 "ports": {
                   "type": "array",
-                  "items": { "type": "integer" },
+                  "items": {
+                    "type": "integer"
+                  },
                   "example": [22, 80, 443]
                 }
-              }
+              },
+              "required": ["target", "ports"]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Resultados da varredura de portas.",
+            "description": "Resultado do scan de portas.",
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string" },
+                "target": {
+                  "type": "string"
+                },
                 "results": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "status": { "type": "string" },
-                      "service": { "type": "string" }
-                    }
-                  }
+                  "type": "object"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Erro: Falta 'target' ou 'ports' no corpo da requisição."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
           }
         }
       }
     },
     "/scan/vulnerabilities": {
       "post": {
-        "tags": ["Vulnerability Scanner"],
-        "summary": "Escaneia vulnerabilidades associadas ao software detectado.",
-        "description": "Usa a API do NIST para buscar vulnerabilidades relacionadas ao software informado.",
+        "summary": "Scan de Vulnerabilidades",
+        "description": "Realiza uma análise para identificar vulnerabilidades no alvo especificado.",
         "parameters": [
           {
             "in": "body",
@@ -68,43 +77,57 @@
             "schema": {
               "type": "object",
               "properties": {
-                "software_list": {
-                  "type": "array",
-                  "items": { "type": "string" },
-                  "example": ["nginx", "apache"]
+                "target": {
+                  "type": "string",
+                  "example": "127.0.0.1"
                 }
-              }
+              },
+              "required": ["target"]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Resultados do escaneamento de vulnerabilidades.",
+            "description": "Lista de vulnerabilidades encontradas.",
             "schema": {
               "type": "object",
               "properties": {
-                "results": {
+                "target": {
+                  "type": "string"
+                },
+                "vulnerabilities": {
                   "type": "array",
                   "items": {
                     "type": "object",
                     "properties": {
-                      "software": { "type": "string" },
-                      "id": { "type": "string" },
-                      "description": { "type": "string" }
+                      "id": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "severity": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Erro: Falta 'target' no corpo da requisição."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
           }
         }
       }
     },
-    "/scan/ssl": {
+    "/scan/dns": {
       "post": {
-        "tags": ["SSL/TLS Scanner"],
-        "summary": "Realiza verificação SSL/TLS.",
-        "description": "Analisa os certificados SSL/TLS de um domínio e retorna informações como emissor e validade.",
+        "summary": "Scan de DNS",
+        "description": "Executa consultas DNS para o domínio especificado.",
         "parameters": [
           {
             "in": "body",
@@ -113,30 +136,91 @@
             "schema": {
               "type": "object",
               "properties": {
-                "domain": { "type": "string", "example": "example.com" }
-              }
+                "domain": {
+                  "type": "string",
+                  "example": "example.com"
+                }
+              },
+              "required": ["domain"]
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Resultados do escaneamento SSL/TLS.",
+            "description": "Resultado das consultas DNS.",
             "schema": {
               "type": "object",
               "properties": {
-                "domain": { "type": "string" },
-                "results": { "type": "object" }
+                "domain": {
+                  "type": "string"
+                },
+                "dns_records": {
+                  "type": "object"
+                }
               }
             }
+          },
+          "400": {
+            "description": "Erro: Falta 'domain' no corpo da requisição."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
+          }
+        }
+      }
+    },
+    "/scan/web": {
+      "post": {
+        "summary": "Scan de Links Web",
+        "description": "Realiza um scan dos links encontrados no HTML do alvo especificado.",
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": {
+                  "type": "string",
+                  "example": "https://example.com"
+                }
+              },
+              "required": ["target"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de links encontrados.",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "target": {
+                  "type": "string"
+                },
+                "links": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Erro: Falta 'target' no corpo da requisição."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
           }
         }
       }
     },
     "/scan/report": {
       "post": {
-        "tags": ["Reports"],
-        "summary": "Geração de Relatórios Automatizados",
-        "description": "Gera relatórios detalhados em formato JSON ou PDF com base nas análises realizadas.",
+        "summary": "Geração de Relatório",
+        "description": "Gera um relatório em PDF com base nos dados fornecidos.",
         "parameters": [
           {
             "in": "body",
@@ -145,17 +229,24 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string", "example": "example.com" },
-                "type": { "type": "string", "enum": ["json", "pdf"], "example": "pdf" },
+                "target": {
+                  "type": "string",
+                  "example": "127.0.0.1"
+                },
                 "details": {
                   "type": "object",
-                  "additionalProperties": true,
                   "example": {
-                    "ports": { "80": "open", "443": "open" },
-                    "ssl": { "issuer": "Let's Encrypt", "valid_from": "2025-01-01" }
+                    "port_scan": {
+                      "22": "open",
+                      "80": "open"
+                    },
+                    "dns_scan": {
+                      "A": ["127.0.0.1"]
+                    }
                   }
                 }
-              }
+              },
+              "required": ["target", "details"]
             }
           }
         ],
@@ -165,10 +256,20 @@
             "schema": {
               "type": "object",
               "properties": {
-                "target": { "type": "string" },
-                "details": { "type": "object" }
+                "message": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
               }
             }
+          },
+          "400": {
+            "description": "Erro: Formato inválido de 'details' ou falta 'target'."
+          },
+          "500": {
+            "description": "Erro interno do servidor."
           }
         }
       }
